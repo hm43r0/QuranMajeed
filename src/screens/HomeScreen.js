@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -18,7 +18,6 @@ import {
 import { PanGestureHandler, State } from "react-native-gesture-handler";
 import { useTheme } from "../ThemeContext";
 import paraData from "../data/paraData.json";
-import surahData from "../data/surahData.json";
 import bookmarkData from "../data/bookmarkData.json";
 
 export default function HomeScreen({ navigation }) {
@@ -27,9 +26,36 @@ export default function HomeScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState("para");
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [pageQuery, setPageQuery] = useState("");
+  const [surahData, setSurahData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const tabs = ["para", "surah", "bookmark"];
   const [currentTabIndex, setCurrentTabIndex] = useState(0);
+
+  // Fetch surah data from API
+  useEffect(() => {
+    const fetchSurahData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch('https://api.alquran.cloud/v1/surah');
+        const data = await response.json();
+        if (data.code === 200) {
+          setSurahData(data.data);
+        } else {
+          setError('Failed to fetch surah data');
+        }
+      } catch (err) {
+        setError('Network error occurred');
+        console.error('Error fetching surah data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSurahData();
+  }, []);
 
   const getCurrentData = () => {
     switch (activeTab) {
@@ -91,70 +117,57 @@ export default function HomeScreen({ navigation }) {
 
   const renderItem = ({ item }) => {
     const isBookmark = activeTab === "bookmark";
+    const isSurah = activeTab === "surah";
     const paraId = isBookmark ? findParaForPage(item.page) : null;
-    const labelText = isBookmark
-      ? `Page: ${item.page}${paraId ? ` , Para: ${paraId}` : ""}`
-      : `Page No : ${item.page}`;
+    
+    let labelText = "";
+    let arabicText = "";
+    let badgeText = "";
+    
+    if (isBookmark) {
+      labelText = `Page: ${item.page}${paraId ? ` , Para: ${paraId}` : ""}`;
+      arabicText = item.arabic;
+      badgeText = item.id;
+    } else if (isSurah) {
+      labelText = `${item.englishName} (${item.englishNameTranslation})`;
+      arabicText = item.name;
+      badgeText = item.number;
+    } else {
+      labelText = `Page No : ${item.page}`;
+      arabicText = item.arabic;
+      badgeText = item.id;
+    }
 
     return (
-      <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
-        <View style={styles.leftIcons}>
+      <View style={[styles.card, { backgroundColor: theme.cardBackground }]}> 
+        {/* Left: book icon + play button */}
+        <View style={styles.leftIconsRow}>
           <TouchableOpacity
-            style={[
-              styles.iconButton,
-              isBookmark
-                ? { backgroundColor: theme.primary }
-                : { backgroundColor: theme.iconBackground },
-            ]}
-            onPress={() => {
-              if (isBookmark) {
-                // placeholder for delete/remove action for bookmark
-                console.log("remove bookmark", item.id);
-              }
-            }}
+            style={[styles.bookIconWrap, { backgroundColor: theme.iconBackground }]}
           >
-            <MaterialIcons
-              name={isBookmark ? "remove" : "menu-book"}
-              size={24}
-              color={isBookmark ? theme.textLight : theme.primary}
-            />
+            <MaterialIcons name="menu-book" size={18} color={theme.primary} />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.middle}>
-          <Text
-            style={[
-              isBookmark ? styles.bookmarkLabel : styles.pageLabel,
-              isBookmark
-                ? { borderColor: "#000", borderWidth: StyleSheet.hairlineWidth }
-                : {
-                    backgroundColor: theme.pageLabelBackground,
-                    color: theme.textDark,
-                  },
-            ]}
-          >
-            {labelText}
-          </Text>
+        {/* Middle: centered page pill / label */}
+        <View style={styles.centerPillWrap}>
+          <View style={[styles.pagePill, { backgroundColor: theme.pageLabelBackground, borderColor: theme.primary }]}> 
+            <Text style={[styles.pagePillText, { color: theme.primary }]}>{labelText}</Text>
+          </View>
         </View>
 
-        <View style={styles.rightWrapper}>
+        {/* Right: Arabic text */}
+        <View style={styles.rightWrapper}> 
           <View style={styles.rightColumn}>
-            <Text style={[styles.arabic, { color: theme.arabicText }]}>
-              {item.arabic}
+            <Text style={[styles.arabic, { color: theme.arabicText }]} numberOfLines={1} ellipsizeMode="tail">
+              {arabicText}
             </Text>
           </View>
         </View>
 
-        <View
-          style={[
-            styles.badgePill,
-            { backgroundColor: theme.accent },
-            isBookmark ? styles.bookmarkRibbon : {},
-          ]}
-        >
-          <Text style={[styles.badgeText, { color: theme.textLight }]}>
-            {item.id}
-          </Text>
+        {/* Number badge */}
+        <View style={[styles.badgePill, styles.badgeRight, { backgroundColor: '#f6b100' }]}> 
+          <Text style={[styles.badgeText, { color: theme.textLight }]}>{badgeText}</Text>
         </View>
       </View>
     );
@@ -365,9 +378,52 @@ export default function HomeScreen({ navigation }) {
 
           <FlatList
             data={getCurrentData()}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => (item.id || item.number).toString()}
             renderItem={renderItem}
             contentContainerStyle={{ padding: 12 }}
+            ListEmptyComponent={
+              activeTab === "surah" && loading ? (
+                <View style={styles.centerContainer}>
+                  <Text style={[styles.loadingText, { color: theme.textPrimary }]}>
+                    Loading Surah data...
+                  </Text>
+                </View>
+              ) : activeTab === "surah" && error ? (
+                <View style={styles.centerContainer}>
+                  <Text style={[styles.errorText, { color: theme.textPrimary }]}>
+                    {error}
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.retryButton, { backgroundColor: theme.primary }]}
+                    onPress={() => {
+                      setError(null);
+                      // Re-fetch data
+                      const fetchSurahData = async () => {
+                        setLoading(true);
+                        try {
+                          const response = await fetch('https://api.alquran.cloud/v1/surah');
+                          const data = await response.json();
+                          if (data.code === 200) {
+                            setSurahData(data.data);
+                          } else {
+                            setError('Failed to fetch surah data');
+                          }
+                        } catch (err) {
+                          setError('Network error occurred');
+                        } finally {
+                          setLoading(false);
+                        }
+                      };
+                      fetchSurahData();
+                    }}
+                  >
+                    <Text style={[styles.retryButtonText, { color: theme.textLight }]}>
+                      Retry
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null
+            }
           />
         </View>
       </PanGestureHandler>
@@ -376,7 +432,7 @@ export default function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f6f9f4" },
+  container: { flex: 1, backgroundColor: "#f3f6f2" },
   header: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -388,13 +444,13 @@ const styles = StyleSheet.create({
   appSubtitle: { fontSize: 12, color: "#556b2f", marginTop: 2 },
   headerActions: { flexDirection: "row", alignItems: "center" },
   menuButton: {
-    backgroundColor: "#fff",
+    backgroundColor: "#f7f9f6",
     padding: 8,
     borderRadius: 10,
-    elevation: 2,
+    elevation: 1,
     shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
     marginLeft: 8,
   },
   themeButton: {
@@ -406,13 +462,13 @@ const styles = StyleSheet.create({
   },
   themeButtonText: { color: "#fff", fontWeight: "700", fontSize: 12 },
   searchButton: {
-    backgroundColor: "#fff",
+    backgroundColor: "#f7f9f6",
     padding: 8,
     borderRadius: 10,
-    elevation: 2,
+    elevation: 1,
     shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
   },
   tabsRow: {
     flexDirection: "row",
@@ -433,78 +489,89 @@ const styles = StyleSheet.create({
   tabText: { color: "#0b2e13", fontWeight: "600", fontSize: 16 },
   card: {
     flexDirection: "row",
-    backgroundColor: "#fff",
+    backgroundColor: "#fbfdfb",
     borderRadius: 14,
-    padding: 14,
+    padding: 12,
     alignItems: "center",
     marginBottom: 12,
-    elevation: 4,
+    elevation: 2,
     shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
     position: "relative",
     overflow: "hidden",
   },
-  leftIcons: { width: 56, alignItems: "center" },
-  iconButton: {
-    backgroundColor: "#f1fbf3",
-    padding: 10,
+  leftIconsRow: {
+    width: 60,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bookIconWrap: {
+    width: 36,
+    height: 36,
     borderRadius: 8,
-    marginBottom: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 0,
+    elevation: 2,
   },
   middle: { flex: 1 },
-  pageLabel: {
-    borderWidth: 0,
-    color: "#2b2b2b",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    alignSelf: "flex-start",
-    backgroundColor: "#f7fff8",
-    fontWeight: "600",
+  centerPillWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
+  pagePill: {
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    minWidth: 130,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: '#fbfff9',
+    borderColor: '#e1e9e1',
   },
+  pagePillText: { fontWeight: "800", fontSize: 14 },
   rightWrapper: {
     flex: 0.6,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
-    paddingRight: 48, // reserve space inside the card for the pill
+    paddingRight: 36, // reserve space inside the card for the pill
   },
   rightColumn: { alignItems: "flex-end", paddingRight: 8 },
   arabic: {
-    fontSize: 22,
-    lineHeight: 28,
+    fontSize: 18,
+    lineHeight: 22,
     textAlign: "right",
     writingDirection: "rtl",
     marginBottom: 0,
-    fontFamily: "NotoNaskhArabic",
-    color: "#123e1a",
+    fontFamily: "Amiri",
+    color: "#27422a",
   },
   badgePill: {
-    backgroundColor: "#f0b23a",
+    backgroundColor: "#f5c86a",
     minWidth: 36,
     height: 36,
-    borderTopLeftRadius: 18,
-    borderBottomLeftRadius: 18,
-    borderTopRightRadius: 8,
-    borderBottomRightRadius: 8,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     position: "absolute",
     right: 12,
-    bottom: 12,
-    elevation: 4,
+    // bottom kept default; will adjust with badgeRight for vertical centering
+    elevation: 2,
+  },
+  badgeRight: {
+    top: '50%',
+    transform: [{ translateY: -18 }],
   },
   badgeText: { color: "#fff", fontWeight: "700", fontSize: 14 },
   bookmarkLabel: {
     borderWidth: 1,
-    borderColor: "#000",
+    borderColor: "#cfcfcf",
     color: "#2b2b2b",
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 18,
     alignSelf: "center",
-    backgroundColor: "#fff",
+    backgroundColor: "#fbfbfb",
     fontWeight: "600",
   },
   bookmarkRibbon: {
@@ -560,7 +627,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 12 },
   modalInput: {
-    backgroundColor: "#fff",
+    backgroundColor: "#fafcf9",
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 8,
@@ -578,4 +645,31 @@ const styles = StyleSheet.create({
   modalCancelText: { fontWeight: "600" },
   modalGo: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 8 },
   modalGoText: { fontWeight: "700" },
+  centerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  retryButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
 });

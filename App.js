@@ -9,6 +9,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ThemeProvider } from "./src/ThemeContext";
 import HomeScreen from "./src/screens/HomeScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
+import { Amiri_400Regular } from "@expo-google-fonts/amiri";
 
 const Drawer = createDrawerNavigator();
 
@@ -19,8 +20,7 @@ export default function App() {
     async function loadFonts() {
       try {
         await Font.loadAsync({
-          // Place a .ttf font in assets/fonts and name it NotoNaskhArabic-Regular.ttf
-          NotoNaskhArabic: require("./assets/fonts/NotoNaskhArabic-Regular.ttf"),
+          Amiri: Amiri_400Regular,
         });
       } catch (e) {
         console.warn("Error loading fonts", e);
