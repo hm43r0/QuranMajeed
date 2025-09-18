@@ -1,0 +1,37 @@
+[
+  {
+    "id": "1",
+    "page": 1,
+    "arabic": "ٱلۡحَمۡدُ",
+    "surah": "Al-Fatihah",
+    "verse": "1-7"
+  },
+  {
+    "id": "2",
+    "page": 22,
+    "arabic": "سَيَقُولُ ٱلسُّفَهَآءُ",
+    "surah": "Al-Baqarah",
+    "verse": "1-5"
+  },
+  {
+    "id": "3",
+    "page": 42,
+    "arabic": "تِلۡكَ ٱلرُّسُلُ",
+    "surah": "Al-Imran",
+    "verse": "1-10"
+  },
+  {
+    "id": "4",
+    "page": 62,
+    "arabic": "لَن تَنَالُواْ ٱلۡبِرَّ",
+    "surah": "An-Nisa",
+    "verse": "1-7"
+  },
+  {
+    "id": "5",
+    "page": 82,
+    "arabic": "وَٱلۡمُحۡصَنَٰتُ",
+    "surah": "Al-Ma'idah",
+    "verse": "1-8"
+  }
+]
